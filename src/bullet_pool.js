@@ -31,8 +31,8 @@ function BulletPool(maxSize) {
 */
 BulletPool.prototype.add = function(position, velocity) {
   if(this.end < this.max) {
-    this.pool[4*this.end] = position.x;
-    this.pool[4*this.end+1] = position.y;
+    this.pool[4*this.end] = position.x + 27;
+    this.pool[4*this.end+1] = position.y + 10.5;
     this.pool[4*this.end+2] = velocity.x;
     this.pool[4*this.end+3] = velocity.y;
     this.end++;

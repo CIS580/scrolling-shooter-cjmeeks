@@ -6,11 +6,13 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
+const EntityManager = require('./entity-manager.js')
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
+var em = new EntityManager(canvas);
 var input = {
   up: false,
   down: false,
@@ -21,6 +23,17 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
+var backgrounds = [
+  new Image(),
+  new Image(),
+  new Image()
+];
+backgrounds[0].src = 'assets/PARALLAX/foreground.png';
+backgrounds[1].src = 'assets/PARALLAX/midground.png';
+backgrounds[2].src = 'assets/PARALLAX/background.png';
+em.addEnemy1();
+em.addEnemy2();
+em.addEnemy3();
 
 /**
  * @function onkeydown
@@ -48,6 +61,11 @@ window.onkeydown = function(event) {
       input.right = true;
       event.preventDefault();
       break;
+    case " ":
+        bullets.add(player.position, {x: 15, y: 0});
+        event.preventDefault();
+        break;
+
   }
 }
 
@@ -103,9 +121,11 @@ function update(elapsedTime) {
 
   // update the player
   player.update(elapsedTime, input);
+  //update enemies
+  em.update(elapsedTime);
 
   // update the camera
-  camera.update(player.position);
+  camera.update(player);
 
   // Update bullets
   bullets.update(elapsedTime, function(bullet){
@@ -138,7 +158,20 @@ function render(elapsedTime, ctx) {
   ctx.fillRect(0, 0, 1024, 786);
 
   // TODO: Render background
+  ctx.save();
+  ctx.translate(-camera.x * 0.2, 0);
+  ctx.drawImage(backgrounds[2], 0, 0);
+  ctx.restore();
 
+  ctx.save();
+  ctx.translate(-camera.x * 0.6, 0);
+  ctx.drawImage(backgrounds[1], 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+  ctx.drawImage(backgrounds[0], 0, 0);
+  ctx.restore();
   // Transform the coordinate system using
   // the camera position BEFORE rendering
   // objects in the world - that way they
@@ -171,7 +204,9 @@ function renderWorld(elapsedTime, ctx) {
     });
 
     // Render the player
-    player.render(elapsedTime, ctx);
+    player.render(elapsedTime, ctx, camera);
+    //render enemies
+    em.render(elapsedTime, ctx);
 }
 
 /**

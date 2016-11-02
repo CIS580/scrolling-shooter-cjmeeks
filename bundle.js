@@ -7,11 +7,13 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
+const EntityManager = require('./entity-manager.js')
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
+var em = new EntityManager(canvas);
 var input = {
   up: false,
   down: false,
@@ -22,6 +24,17 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
+var backgrounds = [
+  new Image(),
+  new Image(),
+  new Image()
+];
+backgrounds[0].src = 'assets/PARALLAX/foreground.png';
+backgrounds[1].src = 'assets/PARALLAX/midground.png';
+backgrounds[2].src = 'assets/PARALLAX/background.png';
+em.addEnemy1();
+em.addEnemy2();
+em.addEnemy3();
 
 /**
  * @function onkeydown
@@ -49,6 +62,11 @@ window.onkeydown = function(event) {
       input.right = true;
       event.preventDefault();
       break;
+    case " ":
+        bullets.add(player.position, {x: 15, y: 0});
+        event.preventDefault();
+        break;
+
   }
 }
 
@@ -104,9 +122,11 @@ function update(elapsedTime) {
 
   // update the player
   player.update(elapsedTime, input);
+  //update enemies
+  em.update(elapsedTime);
 
   // update the camera
-  camera.update(player.position);
+  camera.update(player);
 
   // Update bullets
   bullets.update(elapsedTime, function(bullet){
@@ -139,7 +159,20 @@ function render(elapsedTime, ctx) {
   ctx.fillRect(0, 0, 1024, 786);
 
   // TODO: Render background
+  ctx.save();
+  ctx.translate(-camera.x * 0.2, 0);
+  ctx.drawImage(backgrounds[2], 0, 0);
+  ctx.restore();
 
+  ctx.save();
+  ctx.translate(-camera.x * 0.6, 0);
+  ctx.drawImage(backgrounds[1], 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+  ctx.drawImage(backgrounds[0], 0, 0);
+  ctx.restore();
   // Transform the coordinate system using
   // the camera position BEFORE rendering
   // objects in the world - that way they
@@ -172,7 +205,9 @@ function renderWorld(elapsedTime, ctx) {
     });
 
     // Render the player
-    player.render(elapsedTime, ctx);
+    player.render(elapsedTime, ctx, camera);
+    //render enemies
+    em.render(elapsedTime, ctx);
 }
 
 /**
@@ -185,7 +220,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./game":4,"./player":6,"./vector":8}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./entity-manager.js":7,"./game":8,"./player":9,"./vector":10}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -219,8 +254,8 @@ function BulletPool(maxSize) {
 */
 BulletPool.prototype.add = function(position, velocity) {
   if(this.end < this.max) {
-    this.pool[4*this.end] = position.x;
-    this.pool[4*this.end+1] = position.y;
+    this.pool[4*this.end] = position.x + 27;
+    this.pool[4*this.end+1] = position.y + 10.5;
     this.pool[4*this.end+2] = velocity.x;
     this.pool[4*this.end+3] = velocity.y;
     this.end++;
@@ -306,6 +341,9 @@ function Camera(screen) {
   this.y = 0;
   this.width = screen.width;
   this.height = screen.height;
+  this.xMin = 200;
+  this.xMax = 1000;
+  this.xOff = 500;
 }
 
 /**
@@ -315,6 +353,18 @@ function Camera(screen) {
  */
 Camera.prototype.update = function(target) {
   // TODO: Align camera with player
+  if(target.position.x < 2650){
+      this.xOff += target.velocity.x;
+      if(this.xOff > this.xMax) {
+        this.x += this.xOff - this.xMax;
+        this.xOff = this.xMax;
+      }
+      if(this.xOff < this.xMin) {
+        this.x -= this.xMin - this.xOff;
+        this.xOff = this.xMin;
+      }
+      if(this.x < 0) this.x = 0;
+  }
 }
 
 /**
@@ -352,7 +402,180 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":8}],4:[function(require,module,exports){
+},{"./vector":10}],4:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = Enemy1;
+
+
+function Enemy1(canvas, x, y){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 88;
+    this.height = 37;
+    this.health = 2;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.velocity = {
+        x: 2,
+        y: 0
+    };
+    this.img = new Image();
+    this.img.src = 'assets/enemies.png';
+}
+
+Enemy1.prototype.update = function(time){
+    this.position.x += this.velocity.x;
+    if(this.position.x > 1500 || this.position.x < 100){
+        this.velocity.x  = -1 * this.velocity.x;
+    }
+}
+
+Enemy1.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 0, 0, 88, 36, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],5:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = Enemy2;
+
+
+function Enemy2(canvas, x, y){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 61;
+    this.height = 60;
+    this.health = 2;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.velocity = {
+        x: 0,
+        y: 2
+    };
+    this.img = new Image();
+    this.img.src = 'assets/enemies.png';
+}
+
+Enemy2.prototype.update = function(time){
+    this.position.y += this.velocity.y;
+    if(this.position.y > 600 || this.position.y < 50){
+        this.velocity.y  = -1 * this.velocity.y;
+    }
+}
+
+Enemy2.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 196, 63, 61, 62, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],6:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = Enemy3;
+
+
+function Enemy3(canvas, x, y){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 56;
+    this.height = 47;
+    this.health = 2;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.velocity = {
+        x: 2,
+        y: 2
+    };
+    this.img = new Image();
+    this.img.src = 'assets/enemies.png';
+}
+
+Enemy3.prototype.update = function(time){
+    this.position.y += this.velocity.y;
+    if(this.position.y > 600 || this.position.y < 50){
+        this.velocity.y  = -1 * this.velocity.y;
+    }
+    this.position.x += this.velocity.x;
+    if(this.position.x > 2600 || this.position.x < 1500){
+        this.velocity.x  = -1 * this.velocity.x;
+    }
+}
+
+Enemy3.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 315, 354, 56, 47, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],7:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = EntityManager;
+
+const Enemy1 = require('./enemy1.js');
+const Enemy2 = require('./enemy2.js');
+const Enemy3 = require('./enemy3.js');
+
+
+function EntityManager(canvas){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.enemies1 = [];
+    this.enemies2 = [];
+    this.enemies3 = [];
+    this.enemies4 = [];
+    this.enemies5 = [];
+    this.canvas = canvas;
+}
+
+EntityManager.prototype.update = function(time){
+    this.enemies1.forEach(function(enemy){
+        enemy.update(time);
+    });
+    this.enemies2.forEach(function(enemy){
+        enemy.update(time);
+    });
+    this.enemies3.forEach(function(enemy){
+        enemy.update(time);
+    });
+}
+
+EntityManager.prototype.render = function(time, ctx){
+    this.enemies1.forEach(function(enemy){
+        enemy.render(time, ctx);
+    });
+    this.enemies2.forEach(function(enemy){
+        enemy.render(time, ctx);
+    });
+    this.enemies3.forEach(function(enemy){
+        enemy.render(time, ctx);
+    });
+}
+
+EntityManager.prototype.addEnemy1 = function(){
+    this.enemies1.push(new Enemy1(this.canvas, Math.random() * (1500-100) +101, Math.random() * (600 - 50) + 50));
+}
+EntityManager.prototype.addEnemy2 = function(){
+    this.enemies2.push(new Enemy2(this.canvas, Math.random() * (1500-100) +101, Math.random() * (600 - 50) + 50));
+}
+EntityManager.prototype.addEnemy3 = function(){
+    this.enemies3.push(new Enemy3(this.canvas, Math.random() * (2600-1500) +1501, Math.random() * (600 - 50) + 50));
+}
+
+},{"./enemy1.js":4,"./enemy2.js":5,"./enemy3.js":6}],8:[function(require,module,exports){
 "use strict";
 
 /**
@@ -410,89 +633,12 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],5:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const SmokeParticles = require('./smoke_particles');
-
-/* Constants */
-const MISSILE_SPEED = 8;
-
-/**
- * @module Missile
- * A class representing a player's missile
- */
-module.exports = exports = Missile;
-
-/**
- * @constructor Missile
- * Creates a missile
- * @param {Vector} position the position of the missile
- * @param {Object} target the target of the missile
- */
-function Missile(position, target) {
-  this.position = {x: position.x, y:position.y}
-  this.target = target;
-  this.angle = 0;
-  this.img = new Image()
-  this.img.src = 'assets/helicopter.png';
-  this.smokeParticles = new SmokeParticles(400);
-}
-
-/**
- * @function update
- * Updates the missile, steering it towards a locked
- * target or straight ahead
- * @param {DOMHighResTimeStamp} elapedTime
- */
-Missile.prototype.update = function(elapsedTime) {
-
-  // set the velocity
-  var velocity = {x: MISSILE_SPEED, y: 0}
-  if(this.target) {
-    var direction = Vector.subtract(this.position, this.target);
-    velocity = Vector.scale(Vector.normalize(direction), MISSILE_SPEED);
-  }
-
-  // determine missile angle
-  this.angle = Math.atan2(velocity.y, velocity.x);
-
-  // move the missile
-  this.position.x += velocity.x;
-  this.position.y += velocity.y;
-
-  // emit smoke
-  this.smokeParticles.emit(this.position);
-
-  // update smoke
-  this.smokeParticles.update(elapsedTime);
-}
-
-/**
- * @function render
- * Renders the missile in world coordinates
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-Missile.prototype.render = function(elapsedTime, ctx) {
-  // Draw Missile
-  ctx.save();
-  ctx.translate(this.position.x, this.position.y);
-  ctx.rotate(this.angle);
-  ctx.drawImage(this.img, 76, 56, 16, 8, 0, -4, 16, 8);
-  ctx.restore();
-  // Draw Smoke
-  this.smokeParticles.render(elapsedTime, ctx);
-}
-
-},{"./smoke_particles":7,"./vector":8}],6:[function(require,module,exports){
-"use strict";
-
-/* Classes and Libraries */
-const Vector = require('./vector');
-const Missile = require('./missile');
+//const Missile = require('./missile');
 
 /* Constants */
 const PLAYER_SPEED = 5;
@@ -514,10 +660,13 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
-  this.position = {x: 200, y: 200};
+  this.position = {x: 0, y: 350};
   this.velocity = {x: 0, y: 0};
   this.img = new Image()
   this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.width = 35;
+  this.height = 25;
+  this.health = 10;
 }
 
 /**
@@ -548,8 +697,8 @@ Player.prototype.update = function(elapsedTime, input) {
 
   // don't let the player move off-screen
   if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(this.position.x > 2650) this.position.x = 2650;
+  //console.log(this.position.x);
 }
 
 /**
@@ -558,11 +707,11 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-Player.prototype.render = function(elapasedTime, ctx) {
-  var offset = this.angle * 23;
+Player.prototype.render = function(elapasedTime, ctx, camera) {
+  //var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  ctx.drawImage(this.img, 57, 49, 27, 21, 0, 0, this.width, this.height);
   ctx.restore();
 }
 
@@ -591,113 +740,7 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./missile":5,"./vector":8}],7:[function(require,module,exports){
-"use strict";
-
-/**
- * @module SmokeParticles
- * A class for managing a particle engine that
- * emulates a smoke trail
- */
-module.exports = exports = SmokeParticles;
-
-/**
- * @constructor SmokeParticles
- * Creates a SmokeParticles engine of the specified size
- * @param {uint} size the maximum number of particles to exist concurrently
- */
-function SmokeParticles(maxSize) {
-  this.pool = new Float32Array(3 * maxSize);
-  this.start = 0;
-  this.end = 0;
-  this.wrapped = false;
-  this.max = maxSize;
-}
-
-/**
- * @function emit
- * Adds a new particle at the given position
- * @param {Vector} position
-*/
-SmokeParticles.prototype.emit = function(position) {
-  if(this.end != this.max) {
-    this.pool[3*this.end] = position.x;
-    this.pool[3*this.end+1] = position.y;
-    this.pool[3*this.end+2] = 0.0;
-    this.end++;
-  } else {
-    this.pool[3] = position.x;
-    this.pool[4] = position.y;
-    this.pool[5] = 0.0;
-    this.end = 1;
-  }
-}
-
-/**
- * @function update
- * Updates the particles
- * @param {DOMHighResTimeStamp} elapsedTime
- */
-SmokeParticles.prototype.update = function(elapsedTime) {
-  function updateParticle(i) {
-    this.pool[3*i+2] += elapsedTime;
-    if(this.pool[3*i+2] > 2000) this.start = i;
-  }
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      updateParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      updateParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      updateParticle.call(this, i);
-    }
-  }
-}
-
-/**
- * @function render
- * Renders all bullets in our array.
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-SmokeParticles.prototype.render = function(elapsedTime, ctx) {
-  function renderParticle(i){
-    var alpha = 1 - (this.pool[3*i+2] / 1000);
-    var radius = 0.1 * this.pool[3*i+2];
-    if(radius > 5) radius = 5;
-    ctx.beginPath();
-    ctx.arc(
-      this.pool[3*i],   // X position
-      this.pool[3*i+1], // y position
-      radius, // radius
-      0,
-      2*Math.PI
-    );
-    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
-    ctx.fill();
-  }
-
-  // Render the particles individually
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      renderParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      renderParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      renderParticle.call(this, i);
-    }
-  }
-}
-
-},{}],8:[function(require,module,exports){
+},{"./vector":10}],10:[function(require,module,exports){
 "use strict";
 
 /**
