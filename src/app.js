@@ -31,9 +31,22 @@ var backgrounds = [
 backgrounds[0].src = 'assets/PARALLAX/foreground.png';
 backgrounds[1].src = 'assets/PARALLAX/midground.png';
 backgrounds[2].src = 'assets/PARALLAX/background.png';
-em.addEnemy1();
-em.addEnemy2();
-em.addEnemy3();
+var gameEnd = false;
+var levelEnd = false;
+var level = 1;
+var gameStart = function(level){
+    for(var i = 0; i < 3 + level; i++){em.addEnemy1();}
+    for(var i = 0; i < 5 + level; i++){em.addEnemy2();}
+    for(var i = 0; i < 3 + level; i++){em.addEnemy3();}
+    for(var i = 0; i < 2 + level; i++){em.addEnemy4();}
+    for(var i = 0; i < level; i++){em.addEnemy5();}
+    player.position.x = 0;
+    camera = new Camera(canvas);
+    em.addPowerUp();
+}
+gameStart(level);
+
+
 
 /**
  * @function onkeydown
@@ -63,6 +76,16 @@ window.onkeydown = function(event) {
       break;
     case " ":
         bullets.add(player.position, {x: 15, y: 0});
+        if(player.weapon == 2){
+            bullets.add(player.position, {x: 15, y: 7});
+            bullets.add(player.position, {x: 15, y: -7});
+        }
+        if(player.weapon == 3){
+            bullets.add(player.position, {x: 15, y: 7});
+            bullets.add(player.position, {x: 15, y: -7});
+            bullets.add(player.position, {x: 15, y: 3});
+            bullets.add(player.position, {x: 15, y: -3});
+        }
         event.preventDefault();
         break;
 
@@ -119,31 +142,59 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
-  // update the player
-  player.update(elapsedTime, input);
-  //update enemies
-  em.update(elapsedTime);
+  if(player.position.x > 2600){
+    levelEnd = true;
+    console.log("level end");
+  }
+  if(player.health == 0){
+      gameEnd = true;
+  }
 
-  // update the camera
-  camera.update(player);
+  if(!levelEnd && !gameEnd){
+      // update the player
+      player.update(elapsedTime, input);
 
-  // Update bullets
-  bullets.update(elapsedTime, function(bullet){
-    if(!camera.onScreen(bullet)) return true;
-    return false;
-  });
+      //update enemies
+      em.update(elapsedTime);
 
-  // Update missiles
-  var markedForRemoval = [];
-  missiles.forEach(function(missile, i){
-    missile.update(elapsedTime);
-    if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
-      markedForRemoval.unshift(i);
-  });
-  // Remove missiles that have gone off-screen
-  markedForRemoval.forEach(function(index){
-    missiles.splice(index, 1);
-  });
+      //check collision with player
+      if(em.checkCollisionsWithPlayer(player)){
+          player.health -= 2;
+      }
+
+      //check enemy and bullet checkBulletCollisions
+      em.checkBulletCollisions(bullets, bullets.bulletRadius, elapsedTime);
+
+      //check collision with powerup
+      if(em.power.length > 0){
+          if(em.checkCollision(player, em.power[0])){
+            player.weapon = em.power[0].weapon;
+            em.power = [];
+          }
+      }
+
+      // update the camera
+      camera.update(player);
+
+      // Update bullets
+      bullets.update(elapsedTime, function(bullet){
+        if(!camera.onScreen(bullet)) return true;
+        return false;
+      });
+
+      // Update missiles
+      var markedForRemoval = [];
+      missiles.forEach(function(missile, i){
+        missile.update(elapsedTime);
+        if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
+          markedForRemoval.unshift(i);
+      });
+      // Remove missiles that have gone off-screen
+      markedForRemoval.forEach(function(index){
+        missiles.splice(index, 1);
+      });
+  }
+
 }
 
 /**
@@ -172,6 +223,10 @@ function render(elapsedTime, ctx) {
   ctx.translate(-camera.x, 0);
   ctx.drawImage(backgrounds[0], 0, 0);
   ctx.restore();
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+  ctx.drawImage(backgrounds[0], 2600, 0);
+  ctx.restore();
   // Transform the coordinate system using
   // the camera position BEFORE rendering
   // objects in the world - that way they
@@ -197,12 +252,6 @@ function render(elapsedTime, ctx) {
 function renderWorld(elapsedTime, ctx) {
     // Render the bullets
     bullets.render(elapsedTime, ctx);
-
-    // Render the missiles
-    missiles.forEach(function(missile) {
-      missile.render(elapsedTime, ctx);
-    });
-
     // Render the player
     player.render(elapsedTime, ctx, camera);
     //render enemies

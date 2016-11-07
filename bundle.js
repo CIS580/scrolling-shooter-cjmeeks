@@ -32,9 +32,22 @@ var backgrounds = [
 backgrounds[0].src = 'assets/PARALLAX/foreground.png';
 backgrounds[1].src = 'assets/PARALLAX/midground.png';
 backgrounds[2].src = 'assets/PARALLAX/background.png';
-em.addEnemy1();
-em.addEnemy2();
-em.addEnemy3();
+var gameEnd = false;
+var levelEnd = false;
+var level = 1;
+var gameStart = function(level){
+    for(var i = 0; i < 3 + level; i++){em.addEnemy1();}
+    for(var i = 0; i < 5 + level; i++){em.addEnemy2();}
+    for(var i = 0; i < 3 + level; i++){em.addEnemy3();}
+    for(var i = 0; i < 2 + level; i++){em.addEnemy4();}
+    for(var i = 0; i < level; i++){em.addEnemy5();}
+    player.position.x = 0;
+    camera = new Camera(canvas);
+    em.addPowerUp();
+}
+gameStart(level);
+
+
 
 /**
  * @function onkeydown
@@ -64,6 +77,16 @@ window.onkeydown = function(event) {
       break;
     case " ":
         bullets.add(player.position, {x: 15, y: 0});
+        if(player.weapon == 2){
+            bullets.add(player.position, {x: 15, y: 7});
+            bullets.add(player.position, {x: 15, y: -7});
+        }
+        if(player.weapon == 3){
+            bullets.add(player.position, {x: 15, y: 7});
+            bullets.add(player.position, {x: 15, y: -7});
+            bullets.add(player.position, {x: 15, y: 3});
+            bullets.add(player.position, {x: 15, y: -3});
+        }
         event.preventDefault();
         break;
 
@@ -120,31 +143,56 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
-  // update the player
-  player.update(elapsedTime, input);
-  //update enemies
-  em.update(elapsedTime);
+  if(player.position.x > 2600 || player.health == 0){
+    levelEnd = true;
+    console.log("level end");
+  }
 
-  // update the camera
-  camera.update(player);
+  if(!levelEnd){
+      // update the player
+      player.update(elapsedTime, input);
 
-  // Update bullets
-  bullets.update(elapsedTime, function(bullet){
-    if(!camera.onScreen(bullet)) return true;
-    return false;
-  });
+      //update enemies
+      em.update(elapsedTime);
 
-  // Update missiles
-  var markedForRemoval = [];
-  missiles.forEach(function(missile, i){
-    missile.update(elapsedTime);
-    if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
-      markedForRemoval.unshift(i);
-  });
-  // Remove missiles that have gone off-screen
-  markedForRemoval.forEach(function(index){
-    missiles.splice(index, 1);
-  });
+      //check collision with player
+      if(em.checkCollisionsWithPlayer(player)){
+          player.health -= 2;
+      }
+
+      //check enemy and bullet checkBulletCollisions
+      em.checkBulletCollisions(bullets, bullets.bulletRadius, elapsedTime);
+
+      //check collision with powerup
+      if(em.power.length > 0){
+          if(em.checkCollision(player, em.power[0])){
+            player.weapon = em.power[0].weapon;
+            em.power = [];
+          }
+      }
+
+      // update the camera
+      camera.update(player);
+
+      // Update bullets
+      bullets.update(elapsedTime, function(bullet){
+        if(!camera.onScreen(bullet)) return true;
+        return false;
+      });
+
+      // Update missiles
+      var markedForRemoval = [];
+      missiles.forEach(function(missile, i){
+        missile.update(elapsedTime);
+        if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
+          markedForRemoval.unshift(i);
+      });
+      // Remove missiles that have gone off-screen
+      markedForRemoval.forEach(function(index){
+        missiles.splice(index, 1);
+      });
+  }
+
 }
 
 /**
@@ -173,6 +221,10 @@ function render(elapsedTime, ctx) {
   ctx.translate(-camera.x, 0);
   ctx.drawImage(backgrounds[0], 0, 0);
   ctx.restore();
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+  ctx.drawImage(backgrounds[0], 2600, 0);
+  ctx.restore();
   // Transform the coordinate system using
   // the camera position BEFORE rendering
   // objects in the world - that way they
@@ -198,12 +250,6 @@ function render(elapsedTime, ctx) {
 function renderWorld(elapsedTime, ctx) {
     // Render the bullets
     bullets.render(elapsedTime, ctx);
-
-    // Render the missiles
-    missiles.forEach(function(missile) {
-      missile.render(elapsedTime, ctx);
-    });
-
     // Render the player
     player.render(elapsedTime, ctx, camera);
     //render enemies
@@ -220,7 +266,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./entity-manager.js":7,"./game":8,"./player":9,"./vector":10}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./entity-manager.js":9,"./game":10,"./player":11,"./vector":13}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -243,6 +289,7 @@ function BulletPool(maxSize) {
   this.pool = new Float32Array(4 * maxSize);
   this.end = 0;
   this.max = maxSize;
+  this.bulletRadius = 4;
 }
 
 /**
@@ -313,7 +360,7 @@ BulletPool.prototype.render = function(elapsedTime, ctx) {
   ctx.fillStyle = "black";
   for(var i = 0; i < this.end; i++) {
     ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
-    ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
+    ctx.arc(this.pool[4*i], this.pool[4*i+1], this.bulletRadius, 0, 2*Math.PI);
   }
   ctx.fill();
   ctx.restore();
@@ -402,7 +449,7 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":10}],4:[function(require,module,exports){
+},{"./vector":13}],4:[function(require,module,exports){
 "use strict";
 
 module.exports = exports = Enemy1;
@@ -523,11 +570,90 @@ Enemy3.prototype.render = function(time, ctx){
 },{}],7:[function(require,module,exports){
 "use strict";
 
+module.exports = exports = Enemy4;
+
+
+function Enemy4(canvas, x, y){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 51;
+    this.height = 300;
+    this.health = 2;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.velocity = {
+        x: 0,
+        y: 2
+    };
+    this.img = new Image();
+    this.img.src = 'assets/enemies.png';
+}
+
+Enemy4.prototype.update = function(time){
+    this.position.y += this.velocity.y;
+    if(this.position.y > 375 || this.position.y < 0){
+        this.velocity.y  = -1 * this.velocity.y;
+    }
+}
+
+Enemy4.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 425, 0, 51, 146, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],8:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = Enemy5;
+
+
+function Enemy5(canvas, x, y){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 200;
+    this.height = 200;
+    this.health = 2;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.velocity = {
+        x: 0,
+        y: 0
+    };
+    this.img = new Image();
+    this.img.src = 'assets/enemies.png';
+}
+
+Enemy5.prototype.update = function(time){
+    this.position.y += this.velocity.y;
+    if(this.position.y > 375 || this.position.y < 0){
+        this.velocity.y  = -1 * this.velocity.y;
+    }
+}
+
+Enemy5.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 371, 459, 51, 50, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],9:[function(require,module,exports){
+"use strict";
+
 module.exports = exports = EntityManager;
 
 const Enemy1 = require('./enemy1.js');
 const Enemy2 = require('./enemy2.js');
 const Enemy3 = require('./enemy3.js');
+const Enemy4 = require('./enemy4.js');
+const Enemy5 = require('./enemy5.js');
+const Power = require('./power.js');
 
 
 function EntityManager(canvas){
@@ -538,6 +664,7 @@ function EntityManager(canvas){
     this.enemies3 = [];
     this.enemies4 = [];
     this.enemies5 = [];
+    this.power = [];
     this.canvas = canvas;
 }
 
@@ -551,6 +678,13 @@ EntityManager.prototype.update = function(time){
     this.enemies3.forEach(function(enemy){
         enemy.update(time);
     });
+    this.enemies4.forEach(function(enemy){
+        enemy.update(time);
+    });
+    this.enemies5.forEach(function(enemy){
+        enemy.update(time);
+    });
+
 }
 
 EntityManager.prototype.render = function(time, ctx){
@@ -563,6 +697,21 @@ EntityManager.prototype.render = function(time, ctx){
     this.enemies3.forEach(function(enemy){
         enemy.render(time, ctx);
     });
+    this.enemies4.forEach(function(enemy){
+        enemy.render(time, ctx);
+    });
+    this.enemies5.forEach(function(enemy){
+        enemy.render(time, ctx);
+    });
+    if(this.power.length > 0){
+        this.power[0].render(time,ctx);
+    }
+
+}
+
+EntityManager.prototype.addPowerUp = function(){
+    this.power.push(new Power(Math.random()*2600, Math.random()* (400-100) + 100, Math.ceil(Math.random()*(3-1) +1)));
+    console.log(this.power[0].weapon);
 }
 
 EntityManager.prototype.addEnemy1 = function(){
@@ -574,8 +723,170 @@ EntityManager.prototype.addEnemy2 = function(){
 EntityManager.prototype.addEnemy3 = function(){
     this.enemies3.push(new Enemy3(this.canvas, Math.random() * (2600-1500) +1501, Math.random() * (600 - 50) + 50));
 }
+EntityManager.prototype.addEnemy4 = function(){
+    this.enemies4.push(new Enemy4(this.canvas, Math.random() * (2400-1500) +1501, Math.random() * (375 - 0) + 0));
+}
+EntityManager.prototype.addEnemy5 = function(){
+    this.enemies5.push(new Enemy5(this.canvas, Math.random() * (2600-2200) +2200, Math.random() * (350 - 0) + 0));
+}
 
-},{"./enemy1.js":4,"./enemy2.js":5,"./enemy3.js":6}],8:[function(require,module,exports){
+EntityManager.prototype.removeEnemy1 = function(index){
+    this.enemies1.splice(index,1);
+}
+EntityManager.prototype.removeEnemy2 = function(index){
+    this.enemies2.splice(index,1);
+}
+EntityManager.prototype.removeEnemy3 = function(index){
+    this.enemies3.splice(index,1);
+}
+EntityManager.prototype.removeEnemy4 = function(index){
+    this.enemies4.splice(index,1);
+}
+EntityManager.prototype.removeEnemy5 = function(index){
+    this.enemies5.splice(index,1);
+}
+
+EntityManager.prototype.checkCollision = function(a, b) {
+  return a.position.x < b.position.x + b.width &&
+    a.position.x + a.width > b.position.x &&
+    a.position.y < b.position.y + b.height &&
+    a.position.y + a.height > b.position.y;
+}
+
+EntityManager.prototype.checkBulletCollision = function(enemy, bullets, bulletRadius, index){
+    var xDist = Math.abs(bullets.pool[index] - (enemy.position.x + (enemy.width / 2)));
+    var yDist = Math.abs(bullets.pool[index+1] - (enemy.position.y + (enemy.height / 2)));
+    if(xDist > (enemy.width/2 + bulletRadius)){ return false; }
+    if(yDist > (enemy.height/2 + bulletRadius)){ return false; }
+    if(xDist <= (enemy.width/2) && yDist <= (enemy.height/2)){return true;}
+    var x = xDist - (enemy.width/2);
+    var y = yDist - (enemy.height/2);
+    return (Math.pow(x, 2) + Math.pow(y, 2) <= Math.pow(bulletRadius, 2));
+}
+
+EntityManager.prototype.checkBulletCollisions = function(bullets, bulletRadius,elapsedTime){
+    var self = this;
+    var remove1 = [];
+    var remove2 = [];
+    var remove3 = [];
+    var remove4 = [];
+    var remove5 = [];
+    for(var i = 0; i < bullets.pool.length; i += 4){
+        this.enemies1.forEach(function(enemy, index){
+            if(self.checkBulletCollision(enemy, bullets, bulletRadius, i)){
+                bullets.update(elapsedTime, function(bullet){
+                    return true;
+                });
+                remove1.push(index);
+            }
+        });
+        this.enemies2.forEach(function(enemy, index){
+            if(self.checkBulletCollision(enemy, bullets, bulletRadius, i)){
+                bullets.update(elapsedTime, function(bullet){
+                    return true;
+                });
+                remove2.push(index);
+            }
+        });
+        this.enemies3.forEach(function(enemy, index){
+            if(self.checkBulletCollision(enemy, bullets, bulletRadius, i)){
+                bullets.update(elapsedTime, function(bullet){
+                    return true;
+                });
+                remove3.push(index);
+            }
+        });
+        this.enemies4.forEach(function(enemy, index){
+            if(self.checkBulletCollision(enemy, bullets, bulletRadius, i)){
+                bullets.update(elapsedTime, function(bullet){
+                    return true;
+                });
+                remove4.push(index);
+            }
+        });
+        this.enemies5.forEach(function(enemy, index){
+            if(self.checkBulletCollision(enemy, bullets, bulletRadius, i)){
+                bullets.update(elapsedTime, function(bullet){
+                    return true;
+                });
+                remove5.push(index);
+            }
+        });
+    }
+    this.handleBullet1(remove1);
+    this.handleBullet2(remove2);
+    this.handleBullet3(remove3);
+    this.handleBullet4(remove4);
+    this.handleBullet5(remove5);
+}
+
+EntityManager.prototype.checkCollisionsWithPlayer = function(player){
+    var collision = false;
+    var self = this;
+        this.enemies1.forEach(function(enemy){
+            if(self.checkCollision(player,enemy)){
+                collision = true;
+            }
+        });
+        this.enemies2.forEach(function(enemy){
+            if(self.checkCollision(player,enemy)){
+                collision = true;
+            }
+        });
+        this.enemies3.forEach(function(enemy){
+            if(self.checkCollision(player,enemy)){
+                collision = true;
+            }
+        });
+        this.enemies4.forEach(function(enemy){
+            if(self.checkCollision(player,enemy)){
+                collision = true;
+            }
+        });
+        this.enemies5.forEach(function(enemy){
+            if(self.checkCollision(player,enemy)){
+                collision = true;
+            }
+        });
+    return collision;
+}
+
+EntityManager.prototype.handleBullet1= function(handle){
+    for(var i = 0; i < handle.length; i++){
+        this.removeEnemy1(handle[i]);
+    }
+}
+EntityManager.prototype.handleBullet2= function(handle){
+    for(var i = 0; i < handle.length; i++){
+        this.removeEnemy2(handle[i]);
+    }
+}
+EntityManager.prototype.handleBullet3= function(handle){
+    for(var i = 0; i < handle.length; i++){
+        this.removeEnemy3(handle[i]);
+    }
+}
+EntityManager.prototype.handleBullet4= function(handle){
+    for(var i = 0; i < handle.length; i++){
+        this.removeEnemy4(handle[i]);
+    }
+}
+EntityManager.prototype.handleBullet5= function(handle){
+    for(var i = 0; i < handle.length; i++){
+        this.removeEnemy5(handle[i]);
+    }
+}
+
+EntityManager.prototype.checkForLevelDone = function(){
+    if(this.enemies1.length > 0 && this.enemies2.length > 0 && this.enemies3.length > 0 && this.enemies4.length > 0 && this.enemies5.length > 0){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+},{"./enemy1.js":4,"./enemy2.js":5,"./enemy3.js":6,"./enemy4.js":7,"./enemy5.js":8,"./power.js":12}],10:[function(require,module,exports){
 "use strict";
 
 /**
@@ -633,7 +944,7 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],9:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
@@ -660,10 +971,13 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
+  this.weapon = 1;
   this.position = {x: 0, y: 350};
   this.velocity = {x: 0, y: 0};
-  this.img = new Image()
+  this.img = new Image();
   this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.weapons = new Image();
+  this.weapons.src = 'assets/weapons.png';
   this.width = 35;
   this.height = 25;
   this.health = 10;
@@ -677,7 +991,6 @@ function Player(bullets, missiles) {
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
-
   // set the velocity
   this.velocity.x = 0;
   if(input.left) this.velocity.x -= PLAYER_SPEED;
@@ -709,10 +1022,29 @@ Player.prototype.update = function(elapsedTime, input) {
  */
 Player.prototype.render = function(elapasedTime, ctx, camera) {
   //var offset = this.angle * 23;
+
+
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
   ctx.drawImage(this.img, 57, 49, 27, 21, 0, 0, this.width, this.height);
   ctx.restore();
+  if(this.weapon == 2){
+     ctx.save();
+     ctx.translate(this.position.x, this.position.y);
+     ctx.drawImage(this.weapons, 96, 173, 24, 16, 21, 3, 24, 16);
+     ctx.restore();
+
+  }
+  if(this.weapon == 3){
+     ctx.save();
+     ctx.translate(this.position.x, this.position.y);
+     ctx.drawImage(this.weapons, 97, 60, 46, 21, 21, 3, 24, 16);
+     ctx.restore();
+
+  }
+
+
+
 }
 
 /**
@@ -740,7 +1072,38 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./vector":10}],10:[function(require,module,exports){
+},{"./vector":13}],12:[function(require,module,exports){
+"use strict";
+
+module.exports = exports = Power;
+
+
+function Power(x, y, num){
+    this.worldWidth = 3000;
+    this.worldHeight = 786;
+    this.width = 45;
+    this.height = 48;
+    this.weapon = num;
+    this.position = {
+        x: x,
+        y: y
+    };
+    this.img = new Image();
+    this.img.src = 'assets/powerups.png';
+}
+
+Power.prototype.update = function(time){
+
+}
+
+Power.prototype.render = function(time, ctx){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 49, 115, 45, 48, 0, 0, this.width, this.height);
+    ctx.restore();
+}
+
+},{}],13:[function(require,module,exports){
 "use strict";
 
 /**

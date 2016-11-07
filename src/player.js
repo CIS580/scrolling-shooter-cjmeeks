@@ -24,10 +24,13 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
+  this.weapon = 1;
   this.position = {x: 0, y: 350};
   this.velocity = {x: 0, y: 0};
-  this.img = new Image()
+  this.img = new Image();
   this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.weapons = new Image();
+  this.weapons.src = 'assets/weapons.png';
   this.width = 35;
   this.height = 25;
   this.health = 10;
@@ -41,7 +44,6 @@ function Player(bullets, missiles) {
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
-
   // set the velocity
   this.velocity.x = 0;
   if(input.left) this.velocity.x -= PLAYER_SPEED;
@@ -73,10 +75,29 @@ Player.prototype.update = function(elapsedTime, input) {
  */
 Player.prototype.render = function(elapasedTime, ctx, camera) {
   //var offset = this.angle * 23;
+
+
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
   ctx.drawImage(this.img, 57, 49, 27, 21, 0, 0, this.width, this.height);
   ctx.restore();
+  if(this.weapon == 2){
+     ctx.save();
+     ctx.translate(this.position.x, this.position.y);
+     ctx.drawImage(this.weapons, 96, 173, 24, 16, 21, 3, 24, 16);
+     ctx.restore();
+
+  }
+  if(this.weapon == 3){
+     ctx.save();
+     ctx.translate(this.position.x, this.position.y);
+     ctx.drawImage(this.weapons, 97, 60, 46, 21, 21, 3, 24, 16);
+     ctx.restore();
+
+  }
+
+
+
 }
 
 /**

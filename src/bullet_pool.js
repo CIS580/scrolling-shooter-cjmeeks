@@ -20,6 +20,7 @@ function BulletPool(maxSize) {
   this.pool = new Float32Array(4 * maxSize);
   this.end = 0;
   this.max = maxSize;
+  this.bulletRadius = 4;
 }
 
 /**
@@ -90,7 +91,7 @@ BulletPool.prototype.render = function(elapsedTime, ctx) {
   ctx.fillStyle = "black";
   for(var i = 0; i < this.end; i++) {
     ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
-    ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
+    ctx.arc(this.pool[4*i], this.pool[4*i+1], this.bulletRadius, 0, 2*Math.PI);
   }
   ctx.fill();
   ctx.restore();

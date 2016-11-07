@@ -47,5 +47,6 @@ Game framework HTML5/CSS3/Javascript code was written by course instructor Natha
 
 Game background from http://opengameart.org/content/3-parallax-backgrounds by Mobile Game graphics
 
+enemies are graphics from author Kenney at http://opengameart.org/content/platformer-art-complete-pack-often-updated
 
 Assets are remastered graphics from the game Tyrian released as public domain on [Lostgarden](http://www.lostgarden.com/2007/04/free-game-graphics-tyrian-ships-and.html)
