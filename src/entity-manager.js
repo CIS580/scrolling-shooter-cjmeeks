@@ -8,9 +8,10 @@ const Enemy3 = require('./enemy3.js');
 const Enemy4 = require('./enemy4.js');
 const Enemy5 = require('./enemy5.js');
 const Power = require('./power.js');
+const Particles = require('./smoke_particles.js');
 
 
-function EntityManager(canvas){
+function EntityManager(canvas, player){
     this.worldWidth = 3000;
     this.worldHeight = 786;
     this.enemies1 = [];
@@ -20,9 +21,11 @@ function EntityManager(canvas){
     this.enemies5 = [];
     this.power = [];
     this.canvas = canvas;
+    this.player = player;
+    this.particles = new Particles(20);
 }
 
-EntityManager.prototype.update = function(time){
+EntityManager.prototype.update = function(time, input){
     this.enemies1.forEach(function(enemy){
         enemy.update(time);
     });
@@ -38,10 +41,11 @@ EntityManager.prototype.update = function(time){
     this.enemies5.forEach(function(enemy){
         enemy.update(time);
     });
-
+    this.player.update(time, input);
+    this.particles.update(time);
 }
 
-EntityManager.prototype.render = function(time, ctx){
+EntityManager.prototype.render = function(time, ctx, camera){
     this.enemies1.forEach(function(enemy){
         enemy.render(time, ctx);
     });
@@ -60,12 +64,13 @@ EntityManager.prototype.render = function(time, ctx){
     if(this.power.length > 0){
         this.power[0].render(time,ctx);
     }
+    this.player.render(time, ctx, camera);
+    this.particles.render(time, ctx);
 
 }
 
 EntityManager.prototype.addPowerUp = function(){
     this.power.push(new Power(Math.random()*2600, Math.random()* (400-100) + 100, Math.ceil(Math.random()*(3-1) +1)));
-    console.log(this.power[0].weapon);
 }
 
 EntityManager.prototype.addEnemy1 = function(){
@@ -85,19 +90,49 @@ EntityManager.prototype.addEnemy5 = function(){
 }
 
 EntityManager.prototype.removeEnemy1 = function(index){
-    this.enemies1.splice(index,1);
+    if(!(index >= this.enemies1.length)){
+        this.particles.emit(this.enemies1[index].position);
+        this.enemies1.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy2 = function(index){
-    this.enemies2.splice(index,1);
+    if(!(index >= this.enemies2.length)){
+        this.particles.emit(this.enemies2[index].position);
+        this.enemies2.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy3 = function(index){
-    this.enemies3.splice(index,1);
+    if(!(index >= this.enemies3.length)){
+        this.particles.emit(this.enemies3[index].position);
+        this.enemies3.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy4 = function(index){
-    this.enemies4.splice(index,1);
+    if(!(index >= this.enemies4.length)){
+        this.particles.emit(this.enemies4[index].position);
+        this.enemies4.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy5 = function(index){
-    this.enemies5.splice(index,1);
+    if(!(index >= this.enemies5.length)){
+        this.particles.emit(this.enemies5[index].position);
+        this.enemies5.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 
 EntityManager.prototype.checkCollision = function(a, b) {
@@ -228,14 +263,5 @@ EntityManager.prototype.handleBullet4= function(handle){
 EntityManager.prototype.handleBullet5= function(handle){
     for(var i = 0; i < handle.length; i++){
         this.removeEnemy5(handle[i]);
-    }
-}
-
-EntityManager.prototype.checkForLevelDone = function(){
-    if(this.enemies1.length > 0 && this.enemies2.length > 0 && this.enemies3.length > 0 && this.enemies4.length > 0 && this.enemies5.length > 0){
-        return true;
-    }
-    else{
-        return false;
     }
 }

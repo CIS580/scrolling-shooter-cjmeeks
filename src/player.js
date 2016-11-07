@@ -34,6 +34,8 @@ function Player(bullets, missiles) {
   this.width = 35;
   this.height = 25;
   this.health = 10;
+  this.totalKills = 0;
+  this.levelKills = 0;
 }
 
 /**

@@ -6,13 +6,13 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
-const EntityManager = require('./entity-manager.js')
+const EntityManager = require('./entity-manager.js');
+const Particles = require('./smoke_particles.js');
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
-var em = new EntityManager(canvas);
 var input = {
   up: false,
   down: false,
@@ -23,6 +23,8 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
+var em = new EntityManager(canvas, player);
+var effect = new Particles(15);
 var backgrounds = [
   new Image(),
   new Image(),
@@ -33,8 +35,14 @@ backgrounds[1].src = 'assets/PARALLAX/midground.png';
 backgrounds[2].src = 'assets/PARALLAX/background.png';
 var gameEnd = false;
 var levelEnd = false;
+var win = false;
 var level = 1;
 var gameStart = function(level){
+    if(gameEnd){
+        em.player.totalKills = 0;
+        em.player.health = 10;
+        level = 1;
+    }
     for(var i = 0; i < 3 + level; i++){em.addEnemy1();}
     for(var i = 0; i < 5 + level; i++){em.addEnemy2();}
     for(var i = 0; i < 3 + level; i++){em.addEnemy3();}
@@ -43,6 +51,8 @@ var gameStart = function(level){
     player.position.x = 0;
     camera = new Camera(canvas);
     em.addPowerUp();
+    win = false;
+    em.player.levelKills = 0;
 }
 gameStart(level);
 
@@ -75,16 +85,31 @@ window.onkeydown = function(event) {
       event.preventDefault();
       break;
     case " ":
-        bullets.add(player.position, {x: 15, y: 0});
-        if(player.weapon == 2){
-            bullets.add(player.position, {x: 15, y: 7});
-            bullets.add(player.position, {x: 15, y: -7});
+        if(!levelEnd){
+            bullets.add(player.position, {x: 15, y: 0});
+            if(player.weapon == 2){
+                bullets.add(player.position, {x: 15, y: 7});
+                bullets.add(player.position, {x: 15, y: -7});
+                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+            }
+            if(player.weapon == 3){
+                bullets.add(player.position, {x: 15, y: 7});
+                bullets.add(player.position, {x: 15, y: -7});
+                bullets.add(player.position, {x: 15, y: 3});
+                bullets.add(player.position, {x: 15, y: -3});
+                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+            }
         }
-        if(player.weapon == 3){
-            bullets.add(player.position, {x: 15, y: 7});
-            bullets.add(player.position, {x: 15, y: -7});
-            bullets.add(player.position, {x: 15, y: 3});
-            bullets.add(player.position, {x: 15, y: -3});
+        else if(levelEnd && !gameEnd && !win){
+            level++;
+            levelEnd = false;
+            gameStart(level);
+        }
+        else if(gameEnd && levelEnd && win){
+            level = 1;
+            gameEnd = false;
+            levelEnd = false;
+            gameStart(level);
         }
         event.preventDefault();
         break;
@@ -140,7 +165,16 @@ masterLoop(performance.now());
  * @param {DOMHighResTimeStamp} elapsedTime indicates
  * the number of milliseconds passed since the last frame.
  */
+ var totalTime = 0;
+ var dontCheck = false;
 function update(elapsedTime) {
+    effect.update(elapsedTime);
+    if(dontCheck){
+        totalTime += elapsedTime;
+    }
+    if(totalTime > 2000){
+        dontCheck = false;
+    }
 
   if(player.position.x > 2600){
     levelEnd = true;
@@ -151,15 +185,16 @@ function update(elapsedTime) {
   }
 
   if(!levelEnd && !gameEnd){
-      // update the player
-      player.update(elapsedTime, input);
-
-      //update enemies
-      em.update(elapsedTime);
+      //update enemies and player
+      em.update(elapsedTime, input);
 
       //check collision with player
-      if(em.checkCollisionsWithPlayer(player)){
-          player.health -= 2;
+      if(!dontCheck){
+        if(em.checkCollisionsWithPlayer(player)){
+            player.health -= 2;
+            dontCheck = true;
+            totalTime = 0;
+        }
       }
 
       //check enemy and bullet checkBulletCollisions
@@ -194,6 +229,13 @@ function update(elapsedTime) {
         missiles.splice(index, 1);
       });
   }
+  else{
+    if(level == 3){
+        win = true;
+        gameEnd = true;
+        levelEnd = true;
+    }
+  }
 
 }
 
@@ -205,6 +247,7 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
+    effect.render(elapsedTime, ctx);
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, 1024, 786);
 
@@ -252,10 +295,8 @@ function render(elapsedTime, ctx) {
 function renderWorld(elapsedTime, ctx) {
     // Render the bullets
     bullets.render(elapsedTime, ctx);
-    // Render the player
-    player.render(elapsedTime, ctx, camera);
-    //render enemies
-    em.render(elapsedTime, ctx);
+    //render enemies and player
+    em.render(elapsedTime, ctx, camera);
 }
 
 /**
@@ -266,4 +307,27 @@ function renderWorld(elapsedTime, ctx) {
   */
 function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
+  if(gameEnd && !win && !levelEnd){
+    ctx.font = "48px serif";
+    ctx.fillText("GAME OVER", 400, 250);
+    ctx.fillText("Total Kills:" + em.player.totalKills, 400, 300);
+    ctx.fillText("Level:" + level, 400, 350);
+    ctx.font = "32px serif";
+    ctx.fillText("<Press space to restart>", 400, 400);
+  }
+  else if(levelEnd && win && gameEnd){
+      ctx.font = "48px serif";
+      ctx.fillText("WINNER", 400, 250);
+      ctx.fillText("Total Kills:" + em.player.totalKills, 400, 300);
+  }
+  else if(levelEnd && !gameEnd && !gameEnd){
+      ctx.font = "48px serif";
+      ctx.fillText("Level: " + level, 400, 250);
+      ctx.fillText("Level Kills:" + em.player.levelKills, 400, 300);
+  }
+
+  ctx.font = "48px serif";
+  ctx.fillText("Level: " + level, 750, 50);
+  ctx.fillText("Level Kills:" + em.player.levelKills, 750, 150);
+  ctx.fillText("Health: " + em.player.health, 750, 100);
 }

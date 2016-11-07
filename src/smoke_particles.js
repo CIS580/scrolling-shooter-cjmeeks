@@ -74,7 +74,6 @@ SmokeParticles.prototype.render = function(elapsedTime, ctx) {
   function renderParticle(i){
     var alpha = 1 - (this.pool[3*i+2] / 1000);
     var radius = 0.1 * this.pool[3*i+2];
-    if(radius > 5) radius = 5;
     ctx.beginPath();
     ctx.arc(
       this.pool[3*i],   // X position

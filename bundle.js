@@ -7,13 +7,13 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
-const EntityManager = require('./entity-manager.js')
+const EntityManager = require('./entity-manager.js');
+const Particles = require('./smoke_particles.js');
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
-var em = new EntityManager(canvas);
 var input = {
   up: false,
   down: false,
@@ -24,6 +24,8 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
+var em = new EntityManager(canvas, player);
+var effect = new Particles(15);
 var backgrounds = [
   new Image(),
   new Image(),
@@ -34,8 +36,14 @@ backgrounds[1].src = 'assets/PARALLAX/midground.png';
 backgrounds[2].src = 'assets/PARALLAX/background.png';
 var gameEnd = false;
 var levelEnd = false;
+var win = false;
 var level = 1;
 var gameStart = function(level){
+    if(gameEnd){
+        em.player.totalKills = 0;
+        em.player.health = 10;
+        level = 1;
+    }
     for(var i = 0; i < 3 + level; i++){em.addEnemy1();}
     for(var i = 0; i < 5 + level; i++){em.addEnemy2();}
     for(var i = 0; i < 3 + level; i++){em.addEnemy3();}
@@ -44,6 +52,8 @@ var gameStart = function(level){
     player.position.x = 0;
     camera = new Camera(canvas);
     em.addPowerUp();
+    win = false;
+    em.player.levelKills = 0;
 }
 gameStart(level);
 
@@ -76,16 +86,31 @@ window.onkeydown = function(event) {
       event.preventDefault();
       break;
     case " ":
-        bullets.add(player.position, {x: 15, y: 0});
-        if(player.weapon == 2){
-            bullets.add(player.position, {x: 15, y: 7});
-            bullets.add(player.position, {x: 15, y: -7});
+        if(!levelEnd){
+            bullets.add(player.position, {x: 15, y: 0});
+            if(player.weapon == 2){
+                bullets.add(player.position, {x: 15, y: 7});
+                bullets.add(player.position, {x: 15, y: -7});
+                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+            }
+            if(player.weapon == 3){
+                bullets.add(player.position, {x: 15, y: 7});
+                bullets.add(player.position, {x: 15, y: -7});
+                bullets.add(player.position, {x: 15, y: 3});
+                bullets.add(player.position, {x: 15, y: -3});
+                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+            }
         }
-        if(player.weapon == 3){
-            bullets.add(player.position, {x: 15, y: 7});
-            bullets.add(player.position, {x: 15, y: -7});
-            bullets.add(player.position, {x: 15, y: 3});
-            bullets.add(player.position, {x: 15, y: -3});
+        else if(levelEnd && !gameEnd && !win){
+            level++;
+            levelEnd = false;
+            gameStart(level);
+        }
+        else if(gameEnd && levelEnd && win){
+            level = 1;
+            gameEnd = false;
+            levelEnd = false;
+            gameStart(level);
         }
         event.preventDefault();
         break;
@@ -141,23 +166,36 @@ masterLoop(performance.now());
  * @param {DOMHighResTimeStamp} elapsedTime indicates
  * the number of milliseconds passed since the last frame.
  */
+ var totalTime = 0;
+ var dontCheck = false;
 function update(elapsedTime) {
+    effect.update(elapsedTime);
+    if(dontCheck){
+        totalTime += elapsedTime;
+    }
+    if(totalTime > 2000){
+        dontCheck = false;
+    }
 
-  if(player.position.x > 2600 || player.health == 0){
+  if(player.position.x > 2600){
     levelEnd = true;
     console.log("level end");
   }
+  if(player.health == 0){
+      gameEnd = true;
+  }
 
-  if(!levelEnd){
-      // update the player
-      player.update(elapsedTime, input);
-
-      //update enemies
-      em.update(elapsedTime);
+  if(!levelEnd && !gameEnd){
+      //update enemies and player
+      em.update(elapsedTime, input);
 
       //check collision with player
-      if(em.checkCollisionsWithPlayer(player)){
-          player.health -= 2;
+      if(!dontCheck){
+        if(em.checkCollisionsWithPlayer(player)){
+            player.health -= 2;
+            dontCheck = true;
+            totalTime = 0;
+        }
       }
 
       //check enemy and bullet checkBulletCollisions
@@ -192,6 +230,13 @@ function update(elapsedTime) {
         missiles.splice(index, 1);
       });
   }
+  else{
+    if(level == 3){
+        win = true;
+        gameEnd = true;
+        levelEnd = true;
+    }
+  }
 
 }
 
@@ -203,6 +248,7 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
+    effect.render(elapsedTime, ctx);
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, 1024, 786);
 
@@ -250,10 +296,8 @@ function render(elapsedTime, ctx) {
 function renderWorld(elapsedTime, ctx) {
     // Render the bullets
     bullets.render(elapsedTime, ctx);
-    // Render the player
-    player.render(elapsedTime, ctx, camera);
-    //render enemies
-    em.render(elapsedTime, ctx);
+    //render enemies and player
+    em.render(elapsedTime, ctx, camera);
 }
 
 /**
@@ -264,9 +308,32 @@ function renderWorld(elapsedTime, ctx) {
   */
 function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
+  if(gameEnd && !win && !levelEnd){
+    ctx.font = "48px serif";
+    ctx.fillText("GAME OVER", 400, 250);
+    ctx.fillText("Total Kills:" + em.player.totalKills, 400, 300);
+    ctx.fillText("Level:" + level, 400, 350);
+    ctx.font = "32px serif";
+    ctx.fillText("<Press space to restart>", 400, 400);
+  }
+  else if(levelEnd && win && gameEnd){
+      ctx.font = "48px serif";
+      ctx.fillText("WINNER", 400, 250);
+      ctx.fillText("Total Kills:" + em.player.totalKills, 400, 300);
+  }
+  else if(levelEnd && !gameEnd && !gameEnd){
+      ctx.font = "48px serif";
+      ctx.fillText("Level: " + level, 400, 250);
+      ctx.fillText("Level Kills:" + em.player.levelKills, 400, 300);
+  }
+
+  ctx.font = "48px serif";
+  ctx.fillText("Level: " + level, 750, 50);
+  ctx.fillText("Level Kills:" + em.player.levelKills, 750, 150);
+  ctx.fillText("Health: " + em.player.health, 750, 100);
 }
 
-},{"./bullet_pool":2,"./camera":3,"./entity-manager.js":9,"./game":10,"./player":11,"./vector":13}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./entity-manager.js":9,"./game":10,"./player":11,"./smoke_particles.js":13,"./vector":14}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -449,7 +516,7 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":13}],4:[function(require,module,exports){
+},{"./vector":14}],4:[function(require,module,exports){
 "use strict";
 
 module.exports = exports = Enemy1;
@@ -654,9 +721,10 @@ const Enemy3 = require('./enemy3.js');
 const Enemy4 = require('./enemy4.js');
 const Enemy5 = require('./enemy5.js');
 const Power = require('./power.js');
+const Particles = require('./smoke_particles.js');
 
 
-function EntityManager(canvas){
+function EntityManager(canvas, player){
     this.worldWidth = 3000;
     this.worldHeight = 786;
     this.enemies1 = [];
@@ -666,9 +734,11 @@ function EntityManager(canvas){
     this.enemies5 = [];
     this.power = [];
     this.canvas = canvas;
+    this.player = player;
+    this.particles = new Particles(20);
 }
 
-EntityManager.prototype.update = function(time){
+EntityManager.prototype.update = function(time, input){
     this.enemies1.forEach(function(enemy){
         enemy.update(time);
     });
@@ -684,10 +754,11 @@ EntityManager.prototype.update = function(time){
     this.enemies5.forEach(function(enemy){
         enemy.update(time);
     });
-
+    this.player.update(time, input);
+    this.particles.update(time);
 }
 
-EntityManager.prototype.render = function(time, ctx){
+EntityManager.prototype.render = function(time, ctx, camera){
     this.enemies1.forEach(function(enemy){
         enemy.render(time, ctx);
     });
@@ -706,12 +777,13 @@ EntityManager.prototype.render = function(time, ctx){
     if(this.power.length > 0){
         this.power[0].render(time,ctx);
     }
+    this.player.render(time, ctx, camera);
+    this.particles.render(time, ctx);
 
 }
 
 EntityManager.prototype.addPowerUp = function(){
     this.power.push(new Power(Math.random()*2600, Math.random()* (400-100) + 100, Math.ceil(Math.random()*(3-1) +1)));
-    console.log(this.power[0].weapon);
 }
 
 EntityManager.prototype.addEnemy1 = function(){
@@ -731,19 +803,49 @@ EntityManager.prototype.addEnemy5 = function(){
 }
 
 EntityManager.prototype.removeEnemy1 = function(index){
-    this.enemies1.splice(index,1);
+    if(!(index >= this.enemies1.length)){
+        this.particles.emit(this.enemies1[index].position);
+        this.enemies1.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy2 = function(index){
-    this.enemies2.splice(index,1);
+    if(!(index >= this.enemies2.length)){
+        this.particles.emit(this.enemies2[index].position);
+        this.enemies2.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy3 = function(index){
-    this.enemies3.splice(index,1);
+    if(!(index >= this.enemies3.length)){
+        this.particles.emit(this.enemies3[index].position);
+        this.enemies3.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy4 = function(index){
-    this.enemies4.splice(index,1);
+    if(!(index >= this.enemies4.length)){
+        this.particles.emit(this.enemies4[index].position);
+        this.enemies4.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 EntityManager.prototype.removeEnemy5 = function(index){
-    this.enemies5.splice(index,1);
+    if(!(index >= this.enemies5.length)){
+        this.particles.emit(this.enemies5[index].position);
+        this.enemies5.splice(index,1);
+        this.player.levelKills++;
+        this.player.totalKills++;
+    }
+
 }
 
 EntityManager.prototype.checkCollision = function(a, b) {
@@ -877,16 +979,7 @@ EntityManager.prototype.handleBullet5= function(handle){
     }
 }
 
-EntityManager.prototype.checkForLevelDone = function(){
-    if(this.enemies1.length > 0 && this.enemies2.length > 0 && this.enemies3.length > 0 && this.enemies4.length > 0 && this.enemies5.length > 0){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-
-},{"./enemy1.js":4,"./enemy2.js":5,"./enemy3.js":6,"./enemy4.js":7,"./enemy5.js":8,"./power.js":12}],10:[function(require,module,exports){
+},{"./enemy1.js":4,"./enemy2.js":5,"./enemy3.js":6,"./enemy4.js":7,"./enemy5.js":8,"./power.js":12,"./smoke_particles.js":13}],10:[function(require,module,exports){
 "use strict";
 
 /**
@@ -981,6 +1074,8 @@ function Player(bullets, missiles) {
   this.width = 35;
   this.height = 25;
   this.health = 10;
+  this.totalKills = 0;
+  this.levelKills = 0;
 }
 
 /**
@@ -1072,7 +1167,7 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./vector":13}],12:[function(require,module,exports){
+},{"./vector":14}],12:[function(require,module,exports){
 "use strict";
 
 module.exports = exports = Power;
@@ -1104,6 +1199,111 @@ Power.prototype.render = function(time, ctx){
 }
 
 },{}],13:[function(require,module,exports){
+"use strict";
+
+/**
+ * @module SmokeParticles
+ * A class for managing a particle engine that
+ * emulates a smoke trail
+ */
+module.exports = exports = SmokeParticles;
+
+/**
+ * @constructor SmokeParticles
+ * Creates a SmokeParticles engine of the specified size
+ * @param {uint} size the maximum number of particles to exist concurrently
+ */
+function SmokeParticles(maxSize) {
+  this.pool = new Float32Array(3 * maxSize);
+  this.start = 0;
+  this.end = 0;
+  this.wrapped = false;
+  this.max = maxSize;
+}
+
+/**
+ * @function emit
+ * Adds a new particle at the given position
+ * @param {Vector} position
+*/
+SmokeParticles.prototype.emit = function(position) {
+  if(this.end != this.max) {
+    this.pool[3*this.end] = position.x;
+    this.pool[3*this.end+1] = position.y;
+    this.pool[3*this.end+2] = 0.0;
+    this.end++;
+  } else {
+    this.pool[3] = position.x;
+    this.pool[4] = position.y;
+    this.pool[5] = 0.0;
+    this.end = 1;
+  }
+}
+
+/**
+ * @function update
+ * Updates the particles
+ * @param {DOMHighResTimeStamp} elapsedTime
+ */
+SmokeParticles.prototype.update = function(elapsedTime) {
+  function updateParticle(i) {
+    this.pool[3*i+2] += elapsedTime;
+    if(this.pool[3*i+2] > 2000) this.start = i;
+  }
+  var i;
+  if(this.wrapped) {
+    for(i = 0; i < this.end; i++){
+      updateParticle.call(this, i);
+    }
+    for(i = this.start; i < this.max; i++){
+      updateParticle.call(this, i);
+    }
+  } else {
+    for(i = this.start; i < this.end; i++) {
+      updateParticle.call(this, i);
+    }
+  }
+}
+
+/**
+ * @function render
+ * Renders all bullets in our array.
+ * @param {DOMHighResTimeStamp} elapsedTime
+ * @param {CanvasRenderingContext2D} ctx
+ */
+SmokeParticles.prototype.render = function(elapsedTime, ctx) {
+  function renderParticle(i){
+    var alpha = 1 - (this.pool[3*i+2] / 1000);
+    var radius = 0.1 * this.pool[3*i+2];
+    ctx.beginPath();
+    ctx.arc(
+      this.pool[3*i],   // X position
+      this.pool[3*i+1], // y position
+      radius, // radius
+      0,
+      2*Math.PI
+    );
+    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
+    ctx.fill();
+  }
+
+  // Render the particles individually
+  var i;
+  if(this.wrapped) {
+    for(i = 0; i < this.end; i++){
+      renderParticle.call(this, i);
+    }
+    for(i = this.start; i < this.max; i++){
+      renderParticle.call(this, i);
+    }
+  } else {
+    for(i = this.start; i < this.end; i++) {
+      renderParticle.call(this, i);
+    }
+  }
+}
+
+},{}],14:[function(require,module,exports){
 "use strict";
 
 /**
