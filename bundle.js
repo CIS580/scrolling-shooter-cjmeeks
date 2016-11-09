@@ -86,22 +86,25 @@ window.onkeydown = function(event) {
       event.preventDefault();
       break;
     case " ":
-        if(!levelEnd){
-            bullets.add(player.position, {x: 15, y: 0});
-            if(player.weapon == 2){
-                bullets.add(player.position, {x: 15, y: 7});
-                bullets.add(player.position, {x: 15, y: -7});
-                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
-            }
-            if(player.weapon == 3){
-                bullets.add(player.position, {x: 15, y: 7});
-                bullets.add(player.position, {x: 15, y: -7});
-                bullets.add(player.position, {x: 15, y: 3});
-                bullets.add(player.position, {x: 15, y: -3});
-                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+        if(em.player.active){
+            if(!levelEnd){
+                bullets.add(player.position, {x: 15, y: 0});
+                if(player.weapon == 2){
+                    bullets.add(player.position, {x: 15, y: 7});
+                    bullets.add(player.position, {x: 15, y: -7});
+                    effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+                }
+                if(player.weapon == 3){
+                    bullets.add(player.position, {x: 15, y: 7});
+                    bullets.add(player.position, {x: 15, y: -7});
+                    bullets.add(player.position, {x: 15, y: 3});
+                    bullets.add(player.position, {x: 15, y: -3});
+                    effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+                }
             }
         }
-        else if(levelEnd && !gameEnd && !win){
+
+        if(levelEnd && !gameEnd && !win){
             level++;
             levelEnd = false;
             gameStart(level);
@@ -183,9 +186,10 @@ function update(elapsedTime) {
   }
   if(player.health == 0){
       gameEnd = true;
+      player.active = false;
   }
 
-  if(!levelEnd && !gameEnd){
+  if(!levelEnd){
       //update enemies and player
       em.update(elapsedTime, input);
 
@@ -1063,6 +1067,7 @@ function Player(bullets, missiles) {
   this.missiles = missiles;
   this.missileCount = 4;
   this.bullets = bullets;
+  this.active = true;
   this.angle = 0;
   this.weapon = 1;
   this.position = {x: 0, y: 350};
@@ -1087,26 +1092,29 @@ function Player(bullets, missiles) {
  */
 Player.prototype.update = function(elapsedTime, input) {
   // set the velocity
-  this.velocity.x = 0;
-  if(input.left) this.velocity.x -= PLAYER_SPEED;
-  if(input.right) this.velocity.x += PLAYER_SPEED;
-  this.velocity.y = 0;
-  if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
-  if(input.down) this.velocity.y += PLAYER_SPEED / 2;
+  if(this.active){
+      this.velocity.x = 0;
+      if(input.left) this.velocity.x -= PLAYER_SPEED;
+      if(input.right) this.velocity.x += PLAYER_SPEED;
+      this.velocity.y = 0;
+      if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
+      if(input.down) this.velocity.y += PLAYER_SPEED / 2;
 
-  // determine player angle
-  this.angle = 0;
-  if(this.velocity.x < 0) this.angle = -1;
-  if(this.velocity.x > 0) this.angle = 1;
+      // determine player angle
+      this.angle = 0;
+      if(this.velocity.x < 0) this.angle = -1;
+      if(this.velocity.x > 0) this.angle = 1;
 
-  // move the player
-  this.position.x += this.velocity.x;
-  this.position.y += this.velocity.y;
+      // move the player
+      this.position.x += this.velocity.x;
+      this.position.y += this.velocity.y;
 
-  // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 2650) this.position.x = 2650;
-  //console.log(this.position.x);
+      // don't let the player move off-screen
+      if(this.position.x < 0) this.position.x = 0;
+      if(this.position.x > 2650) this.position.x = 2650;
+      //console.log(this.position.x); 
+  }
+
 }
 
 /**
@@ -1118,27 +1126,24 @@ Player.prototype.update = function(elapsedTime, input) {
 Player.prototype.render = function(elapasedTime, ctx, camera) {
   //var offset = this.angle * 23;
 
-
-  ctx.save();
-  ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 57, 49, 27, 21, 0, 0, this.width, this.height);
-  ctx.restore();
-  if(this.weapon == 2){
-     ctx.save();
-     ctx.translate(this.position.x, this.position.y);
-     ctx.drawImage(this.weapons, 96, 173, 24, 16, 21, 3, 24, 16);
-     ctx.restore();
-
-  }
-  if(this.weapon == 3){
-     ctx.save();
-     ctx.translate(this.position.x, this.position.y);
-     ctx.drawImage(this.weapons, 97, 60, 46, 21, 21, 3, 24, 16);
-     ctx.restore();
-
-  }
-
-
+  if(this.active){
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.img, 57, 49, 27, 21, 0, 0, this.width, this.height);
+    ctx.restore();
+    if(this.weapon == 2){
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.drawImage(this.weapons, 96, 173, 24, 16, 21, 3, 24, 16);
+        ctx.restore();
+    }
+    if(this.weapon == 3){
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.drawImage(this.weapons, 97, 60, 46, 21, 21, 3, 24, 16);
+        ctx.restore();
+    }
+}
 
 }
 

@@ -85,22 +85,25 @@ window.onkeydown = function(event) {
       event.preventDefault();
       break;
     case " ":
-        if(!levelEnd){
-            bullets.add(player.position, {x: 15, y: 0});
-            if(player.weapon == 2){
-                bullets.add(player.position, {x: 15, y: 7});
-                bullets.add(player.position, {x: 15, y: -7});
-                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
-            }
-            if(player.weapon == 3){
-                bullets.add(player.position, {x: 15, y: 7});
-                bullets.add(player.position, {x: 15, y: -7});
-                bullets.add(player.position, {x: 15, y: 3});
-                bullets.add(player.position, {x: 15, y: -3});
-                effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+        if(em.player.active){
+            if(!levelEnd){
+                bullets.add(player.position, {x: 15, y: 0});
+                if(player.weapon == 2){
+                    bullets.add(player.position, {x: 15, y: 7});
+                    bullets.add(player.position, {x: 15, y: -7});
+                    effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+                }
+                if(player.weapon == 3){
+                    bullets.add(player.position, {x: 15, y: 7});
+                    bullets.add(player.position, {x: 15, y: -7});
+                    bullets.add(player.position, {x: 15, y: 3});
+                    bullets.add(player.position, {x: 15, y: -3});
+                    effect.emit({x: player.position.x+27, y: player.position.y +10.5})
+                }
             }
         }
-        else if(levelEnd && !gameEnd && !win){
+
+        if(levelEnd && !gameEnd && !win){
             level++;
             levelEnd = false;
             gameStart(level);
@@ -182,9 +185,10 @@ function update(elapsedTime) {
   }
   if(player.health == 0){
       gameEnd = true;
+      player.active = false;
   }
 
-  if(!levelEnd && !gameEnd){
+  if(!levelEnd){
       //update enemies and player
       em.update(elapsedTime, input);
 
